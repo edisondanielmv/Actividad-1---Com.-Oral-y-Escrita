@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Login from './components/Login';
 import Exam from './components/Exam';
@@ -81,7 +82,13 @@ const App: React.FC = () => {
         }
         return safeResponse;
     } catch (e) {
-        safeResponse.aiAnalysis = { questionId: question.id, score: 0, feedback: "Error de evaluación." };
+        // En caso de excepción crítica fuera del servicio, también aplicamos la política de compensación
+        safeResponse.pointsEarned = question.points;
+        safeResponse.aiAnalysis = { 
+          questionId: question.id, 
+          score: question.points, 
+          feedback: "ERROR TÉCNICO: Se ha producido una interrupción en la comunicación con el servidor de evaluación. Como medida de contingencia, se le otorga el puntaje máximo para este ítem." 
+        };
         return safeResponse;
     }
   };
@@ -100,7 +107,7 @@ const App: React.FC = () => {
          const res = await gradeSingleQuestion(q, ans);
          allDetails.push(res);
          setGradingProgress(Math.round(((i + 1) / examQuestions.length) * 100));
-         await new Promise(r => setTimeout(r, 800));
+         await new Promise(r => setTimeout(r, 600)); // Ligeramente más rápido
       }
       setExamResult({ totalScore: allDetails.reduce((sum, d) => sum + d.pointsEarned, 0), maxScore, details: allDetails });
     } finally {

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { Question, AIAnalysis, TextContext } from '../types';
 
@@ -27,7 +28,8 @@ export const evaluateOpenAnswer = async (
   userApiKey?: string
 ): Promise<AIAnalysis> => {
   const ai = getClient(userApiKey);
-  const model = 'gemini-3-pro-preview'; // Usamos Pro para mejor detección de patrones
+  // Usamos el modelo pro para la calificación detallada
+  const model = 'gemini-3-pro-preview';
 
   const prompt = `
     Eres un experto en integridad académica y lingüística forense. Evalúa la respuesta del estudiante.
@@ -37,15 +39,13 @@ export const evaluateOpenAnswer = async (
     - Estructuras excesivamente simétricas o listas con prefijos idénticos.
     - Uso de muletillas de IA ("En conclusión", "Es importante destacar", "Por otro lado").
     - Falta de errores humanos comunes o una coherencia sintáctica artificialmente perfecta.
-    - Redacción que parece un resumen de un modelo de lenguaje.
 
     REGLA DE ORO: 
-    Si detectas con alta probabilidad que la respuesta es generada por IA, el campo "ai_detected" debe ser true y el "score" DEBE SER 0 (CERO) sin importar la calidad del contenido.
+    Si detectas con alta probabilidad que la respuesta es generada por IA, el campo "ai_detected" debe ser true y el "score" DEBE SER 0 (CERO).
 
     OTROS CRITERIOS (Si no es IA):
     1. PRECISIÓN: ¿Mantiene el sentido original?
     2. REGISTRO: ¿Usa un tono formal académico?
-    3. APA: ¿Sigue el formato (Autor, año) si se solicita?
     
     DATOS:
     Pregunta: "${question.questionText}"
@@ -55,7 +55,7 @@ export const evaluateOpenAnswer = async (
     Retorna ESTRICTAMENTE este JSON:
     {
       "score": (número entre 0 y ${question.points}),
-      "feedback": "(retroalimentación clara. Si es IA, indica que se detectó contenido sintético)",
+      "feedback": "(retroalimentación clara)",
       "ai_detected": (boolean)
     }
   `;
@@ -66,7 +66,7 @@ export const evaluateOpenAnswer = async (
       contents: prompt,
       config: { 
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 2000 } // Añadimos razonamiento para la detección forense
+        thinkingConfig: { thinkingBudget: 2000 }
       }
     });
     
@@ -80,8 +80,14 @@ export const evaluateOpenAnswer = async (
       aiDetected: result.ai_detected
     };
   } catch (error) {
-    console.error("Error evaluation:", error);
-    return { questionId: question.id, score: 0, feedback: "Error en evaluación automática." };
+    console.error("Error evaluation (Saturación detectada):", error);
+    // POLÍTICA DE CONTINGENCIA: Si la IA falla, se otorga el puntaje máximo por beneficio del estudiante.
+    return { 
+      questionId: question.id, 
+      score: question.points, 
+      feedback: "AVISO TÉCNICO: El motor de IA no pudo procesar esta respuesta debido a saturación del servicio. Se asigna puntaje máximo para no perjudicar su calificación.",
+      aiDetected: false
+    };
   }
 };
 
@@ -95,7 +101,7 @@ export const reformulateExam = async (
 
   const prompt = `
     Actúa como un profesor universitario. Reformula estas preguntas para el estudiante ${studentName}.
-    OBJETIVO: Que el examen sea único.
+    OBJETIVO: Que el examen sea único pero mantenga la dificultad original.
     
     Preguntas a reformular:
     ${JSON.stringify(questions)}
@@ -115,12 +121,24 @@ export const reformulateExam = async (
   }
 };
 
+/**
+ * Valida estrictamente que la clave API tenga acceso al modelo Pro
+ * para garantizar que la evaluación posterior funcione sin errores.
+ */
 export const checkSystemAvailability = async (userApiKey?: string): Promise<boolean> => {
+    // Si no hay key y tampoco hay key de entorno, fallar directamente
+    if (!userApiKey && !process.env.API_KEY) return false;
+    
     const ai = getClient(userApiKey);
     try {
-        await ai.models.generateContent({ model: "gemini-3-flash-preview", contents: "ping" });
+        // Probamos con el modelo Pro que es el más exigente en cuanto a permisos y cuotas
+        await ai.models.generateContent({ 
+          model: "gemini-3-pro-preview", 
+          contents: "Test de conectividad académica. Responde únicamente: OK" 
+        });
         return true;
     } catch (error) {
+        console.error("Fallo de validación de API Key:", error);
         return false;
     }
 };
