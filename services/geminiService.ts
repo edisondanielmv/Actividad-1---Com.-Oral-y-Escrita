@@ -3,10 +3,11 @@ import { GoogleGenAI } from "@google/genai";
 import { Question, AIAnalysis, TextContext } from '../types';
 
 const getClient = (customKey?: string) => {
-    // Priorizamos la clave ingresada por el usuario
     const key = customKey || process.env.API_KEY || '';
     return new GoogleGenAI({ apiKey: key });
 };
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const cleanJsonString = (str: string) => {
   if (!str) return '[]';
@@ -28,21 +29,16 @@ export const evaluateOpenAnswer = async (
   contextText?: TextContext,
   userApiKey?: string
 ): Promise<AIAnalysis> => {
-  const ai = getClient(userApiKey);
-  // Usamos el modelo pro para la calificación detallada por su capacidad de razonamiento
   const model = 'gemini-3-pro-preview';
+  const maxRetries = 3;
+  let lastError: any = null;
 
   const prompt = `
     Eres un experto en integridad académica y lingüística forense. Evalúa la respuesta del estudiante.
     
     CRITERIO CRÍTICO DE DETECCIÓN DE IA:
-    Analiza si el texto fue generado por una IA (ChatGPT, Claude, etc.). Busca patrones como:
-    - Estructuras excesivamente simétricas o listas con prefijos idénticos.
-    - Uso de muletillas de IA ("En conclusión", "Es importante destacar", "Por otro lado").
-    - Falta de errores humanos comunes o una coherencia sintáctica artificialmente perfecta.
-
-    REGLA DE ORO: 
-    Si detectas con alta probabilidad que la respuesta es generada por IA, el campo "ai_detected" debe ser true y el "score" DEBE SER 0 (CERO).
+    Analiza si el texto fue generado por una IA (ChatGPT, Claude, etc.).
+    REGLA DE ORO: Si detectas IA, el campo "ai_detected" debe ser true y el "score" DEBE SER 0.
 
     OTROS CRITERIOS (Si no es IA):
     1. PRECISIÓN: ¿Mantiene el sentido original?
@@ -61,35 +57,47 @@ export const evaluateOpenAnswer = async (
     }
   `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: prompt,
-      config: { 
-        responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 2000 }
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const ai = getClient(userApiKey);
+      const response = await ai.models.generateContent({
+        model: model,
+        contents: prompt,
+        config: { 
+          responseMimeType: "application/json",
+          thinkingConfig: { thinkingBudget: 2000 }
+        }
+      });
+      
+      const text = response.text || '{}';
+      const result = JSON.parse(cleanJsonString(text));
+      
+      return {
+        questionId: question.id,
+        score: result.ai_detected ? 0 : result.score,
+        feedback: result.feedback,
+        aiDetected: result.ai_detected
+      };
+    } catch (error) {
+      lastError = error;
+      console.warn(`Intento ${attempt} de evaluación fallido para la pregunta ${question.id}. Reintentando...`);
+      
+      // Si no es el último intento, esperamos un tiempo creciente (2s, 4s)
+      if (attempt < maxRetries) {
+        await delay(attempt * 2000);
       }
-    });
-    
-    const text = response.text || '{}';
-    const result = JSON.parse(cleanJsonString(text));
-    
-    return {
-      questionId: question.id,
-      score: result.ai_detected ? 0 : result.score,
-      feedback: result.feedback,
-      aiDetected: result.ai_detected
-    };
-  } catch (error) {
-    console.error("Error evaluation (Saturación detectada):", error);
-    // POLÍTICA DE CONTINGENCIA: Si la IA falla, se otorga el puntaje máximo por beneficio del estudiante.
-    return { 
-      questionId: question.id, 
-      score: question.points, 
-      feedback: "AVISO TÉCNICO: El motor de IA no pudo procesar esta respuesta debido a saturación del servicio o límites de cuota. Se asigna puntaje máximo para no perjudicar su calificación académica.",
-      aiDetected: false
-    };
+    }
   }
+
+  // Si llegamos aquí, los 3 intentos fallaron
+  console.error("Máximos reintentos alcanzados. Aplicando política de contingencia.", lastError);
+  
+  return { 
+    questionId: question.id, 
+    score: question.points, 
+    feedback: "SISTEMA SATURADO: Tras 3 intentos, el motor de IA no pudo procesar esta respuesta por límites de cuota globales. Por política de integridad y beneficio al estudiante, se otorga el puntaje máximo automático.",
+    aiDetected: false
+  };
 };
 
 export const reformulateExam = async (
@@ -97,51 +105,45 @@ export const reformulateExam = async (
   studentName: string,
   userApiKey?: string
 ): Promise<Question[]> => {
-  const ai = getClient(userApiKey);
   const model = 'gemini-3-flash-preview';
+  const maxRetries = 2;
 
   const prompt = `
     Actúa como un profesor universitario. Reformula estas preguntas para el estudiante ${studentName}.
     OBJETIVO: Que el examen sea único pero mantenga la dificultad original.
-    
-    Preguntas a reformular:
-    ${JSON.stringify(questions)}
+    Preguntas: ${JSON.stringify(questions)}
   `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: prompt,
-      config: { responseMimeType: "application/json" }
-    });
-    const text = response.text || '[]';
-    const reformulated = JSON.parse(cleanJsonString(text));
-    return reformulated.length === questions.length ? reformulated : questions;
-  } catch (error) {
-    return questions;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const ai = getClient(userApiKey);
+      const response = await ai.models.generateContent({
+        model: model,
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+      const text = response.text || '[]';
+      const reformulated = JSON.parse(cleanJsonString(text));
+      if (reformulated.length === questions.length) return reformulated;
+    } catch (error) {
+      if (attempt < maxRetries) await delay(1500);
+    }
   }
+  return questions;
 };
 
-/**
- * Valida la clave API utilizando el modelo Flash.
- * El modelo Flash es más tolerante con los límites de cuota y permite 
- * verificar la conectividad de forma más fiable para el estudiante.
- */
 export const checkSystemAvailability = async (userApiKey?: string): Promise<boolean> => {
-    // Si no hay key ingresada y no hay fallback, rechazamos de inmediato
     if (!userApiKey && !process.env.API_KEY) return false;
     
     const ai = getClient(userApiKey);
     try {
-        // Usamos gemini-3-flash-preview para la validación inicial (más robusto y rápido)
         await ai.models.generateContent({ 
           model: "gemini-3-flash-preview", 
-          contents: "Verificación de credenciales académicas. Responde: OK" 
+          contents: "Test" 
         });
         return true;
     } catch (error: any) {
-        // Log para que el estudiante/docente pueda ver el motivo real en la consola
-        console.error("DEBUG - Fallo de validación API:", error?.message || error);
+        console.error("Fallo de validación API:", error?.message || error);
         return false;
     }
 };
