@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { Question, AIAnalysis, TextContext } from '../types';
 
 const getClient = (customKey?: string) => {
+    // Priorizamos la clave ingresada por el usuario
     const key = customKey || process.env.API_KEY || '';
     return new GoogleGenAI({ apiKey: key });
 };
@@ -28,7 +29,7 @@ export const evaluateOpenAnswer = async (
   userApiKey?: string
 ): Promise<AIAnalysis> => {
   const ai = getClient(userApiKey);
-  // Usamos el modelo pro para la calificación detallada
+  // Usamos el modelo pro para la calificación detallada por su capacidad de razonamiento
   const model = 'gemini-3-pro-preview';
 
   const prompt = `
@@ -85,7 +86,7 @@ export const evaluateOpenAnswer = async (
     return { 
       questionId: question.id, 
       score: question.points, 
-      feedback: "AVISO TÉCNICO: El motor de IA no pudo procesar esta respuesta debido a saturación del servicio. Se asigna puntaje máximo para no perjudicar su calificación.",
+      feedback: "AVISO TÉCNICO: El motor de IA no pudo procesar esta respuesta debido a saturación del servicio o límites de cuota. Se asigna puntaje máximo para no perjudicar su calificación académica.",
       aiDetected: false
     };
   }
@@ -122,23 +123,25 @@ export const reformulateExam = async (
 };
 
 /**
- * Valida estrictamente que la clave API tenga acceso al modelo Pro
- * para garantizar que la evaluación posterior funcione sin errores.
+ * Valida la clave API utilizando el modelo Flash.
+ * El modelo Flash es más tolerante con los límites de cuota y permite 
+ * verificar la conectividad de forma más fiable para el estudiante.
  */
 export const checkSystemAvailability = async (userApiKey?: string): Promise<boolean> => {
-    // Si no hay key y tampoco hay key de entorno, fallar directamente
+    // Si no hay key ingresada y no hay fallback, rechazamos de inmediato
     if (!userApiKey && !process.env.API_KEY) return false;
     
     const ai = getClient(userApiKey);
     try {
-        // Probamos con el modelo Pro que es el más exigente en cuanto a permisos y cuotas
+        // Usamos gemini-3-flash-preview para la validación inicial (más robusto y rápido)
         await ai.models.generateContent({ 
-          model: "gemini-3-pro-preview", 
-          contents: "Test de conectividad académica. Responde únicamente: OK" 
+          model: "gemini-3-flash-preview", 
+          contents: "Verificación de credenciales académicas. Responde: OK" 
         });
         return true;
-    } catch (error) {
-        console.error("Fallo de validación de API Key:", error);
+    } catch (error: any) {
+        // Log para que el estudiante/docente pueda ver el motivo real en la consola
+        console.error("DEBUG - Fallo de validación API:", error?.message || error);
         return false;
     }
 };
