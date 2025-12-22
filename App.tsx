@@ -82,12 +82,11 @@ const App: React.FC = () => {
         }
         return safeResponse;
     } catch (e) {
-        // En caso de excepción crítica fuera del servicio, también aplicamos la política de compensación
         safeResponse.pointsEarned = question.points;
         safeResponse.aiAnalysis = { 
           questionId: question.id, 
           score: question.points, 
-          feedback: "ERROR TÉCNICO: Se ha producido una interrupción en la comunicación con el servidor de evaluación. Como medida de contingencia, se le otorga el puntaje máximo para este ítem." 
+          feedback: "ERROR CRÍTICO: Fallo de red inesperado. Se otorga puntaje máximo por beneficio estudiantil." 
         };
         return safeResponse;
     }
@@ -107,7 +106,10 @@ const App: React.FC = () => {
          const res = await gradeSingleQuestion(q, ans);
          allDetails.push(res);
          setGradingProgress(Math.round(((i + 1) / examQuestions.length) * 100));
-         await new Promise(r => setTimeout(r, 600)); // Ligeramente más rápido
+         
+         // CRÍTICO: Aumentamos el delay a 2500ms para evitar el error "SISTEMA SATURADO" 
+         // Esto nos permite mantenernos bajo el límite de 15-20 solicitudes por minuto (RPM).
+         await new Promise(r => setTimeout(r, 2500)); 
       }
       setExamResult({ totalScore: allDetails.reduce((sum, d) => sum + d.pointsEarned, 0), maxScore, details: allDetails });
     } finally {
@@ -123,7 +125,7 @@ const App: React.FC = () => {
         <div className="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center max-w-md w-full text-center border border-slate-100">
           <Loader2 className="h-14 w-14 text-teal-600 animate-spin mb-6" />
           <h2 className="text-xl font-black text-slate-900 mb-3 uppercase tracking-tight">Preparando Evaluación</h2>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Configurando 20 ejercicios académicos personalizados para tu perfil...</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Personalizando reactivos académicos...</p>
         </div>
       </div>
     );
@@ -134,11 +136,12 @@ const App: React.FC = () => {
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
         <div className="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center max-w-md w-full text-center border border-slate-100">
           <Loader2 className="h-16 w-16 text-teal-700 animate-spin mb-6" />
-          <h2 className="text-2xl font-black text-slate-900 mb-3 uppercase tracking-tight">Calificación en Proceso</h2>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-6">Analizando estructura lingüística y normas APA ({gradingProgress}%)...</p>
+          <h2 className="text-2xl font-black text-slate-900 mb-3 uppercase tracking-tight">Calificando respuestas</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-6">Procesando con IA ({gradingProgress}%)...</p>
           <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden shadow-inner">
              <div className="bg-teal-600 h-full transition-all duration-500 ease-out" style={{ width: `${gradingProgress}%` }}></div>
           </div>
+          <p className="mt-4 text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Respetando límites de tráfico para asegurar la precisión...</p>
         </div>
       </div>
      );

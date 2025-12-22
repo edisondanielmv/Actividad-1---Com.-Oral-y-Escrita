@@ -29,7 +29,8 @@ export const evaluateOpenAnswer = async (
   contextText?: TextContext,
   userApiKey?: string
 ): Promise<AIAnalysis> => {
-  const model = 'gemini-3-pro-preview';
+  // Cambiamos a Flash para la evaluación masiva por su mayor estabilidad y cuota (RPM)
+  const model = 'gemini-3-flash-preview';
   const maxRetries = 3;
   let lastError: any = null;
 
@@ -65,7 +66,8 @@ export const evaluateOpenAnswer = async (
         contents: prompt,
         config: { 
           responseMimeType: "application/json",
-          thinkingConfig: { thinkingBudget: 2000 }
+          // Eliminamos thinkingBudget para Flash en tareas de calificación para reducir latencia
+          temperature: 0.1 // Mayor consistencia en la nota
         }
       });
       
@@ -80,22 +82,21 @@ export const evaluateOpenAnswer = async (
       };
     } catch (error) {
       lastError = error;
-      console.warn(`Intento ${attempt} de evaluación fallido para la pregunta ${question.id}. Reintentando...`);
+      console.warn(`Intento ${attempt} fallido para pregunta ${question.id}. Causa probable: Saturación de API.`);
       
-      // Si no es el último intento, esperamos un tiempo creciente (2s, 4s)
       if (attempt < maxRetries) {
-        await delay(attempt * 2000);
+        // Aumentamos el tiempo de espera entre reintentos para permitir que la cuota se resetee
+        await delay(attempt * 3000); 
       }
     }
   }
 
-  // Si llegamos aquí, los 3 intentos fallaron
   console.error("Máximos reintentos alcanzados. Aplicando política de contingencia.", lastError);
   
   return { 
     questionId: question.id, 
     score: question.points, 
-    feedback: "SISTEMA SATURADO: Tras 3 intentos, el motor de IA no pudo procesar esta respuesta por límites de cuota globales. Por política de integridad y beneficio al estudiante, se otorga el puntaje máximo automático.",
+    feedback: "CONVENIO DE CONTINGENCIA: El motor de IA no respondió tras 3 intentos (Saturación Global). Se asigna puntaje máximo para proteger su registro académico.",
     aiDetected: false
   };
 };
@@ -126,7 +127,7 @@ export const reformulateExam = async (
       const reformulated = JSON.parse(cleanJsonString(text));
       if (reformulated.length === questions.length) return reformulated;
     } catch (error) {
-      if (attempt < maxRetries) await delay(1500);
+      if (attempt < maxRetries) await delay(2000);
     }
   }
   return questions;
@@ -139,7 +140,7 @@ export const checkSystemAvailability = async (userApiKey?: string): Promise<bool
     try {
         await ai.models.generateContent({ 
           model: "gemini-3-flash-preview", 
-          contents: "Test" 
+          contents: "Ping" 
         });
         return true;
     } catch (error: any) {
