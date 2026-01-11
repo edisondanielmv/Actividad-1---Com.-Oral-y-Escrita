@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, Question, Answer } from '../types';
 import QuestionCard from './QuestionCard';
@@ -41,12 +42,16 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
   const nextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
+      const mainContent = document.getElementById('main-exam-content');
+      if (mainContent) mainContent.scrollTop = 0;
     }
   };
 
   const prevQuestion = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
+      const mainContent = document.getElementById('main-exam-content');
+      if (mainContent) mainContent.scrollTop = 0;
     }
   };
 
@@ -56,8 +61,8 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
   if (!questions || questions.length === 0) {
       return (
           <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
-              <Loader2 className="w-8 h-8 animate-spin text-accent" />
-              <p className="text-gray-600">Cargando evaluación...</p>
+              <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+              <p className="text-gray-600 text-sm font-medium">Cargando evaluación...</p>
           </div>
       );
   }
@@ -72,12 +77,12 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
               <div className="w-14 h-14 bg-teal-50 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle className="w-8 h-8 text-teal-600" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 mb-2">¿Finalizar Evaluación?</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-2">¿Finalizar Evaluación?</h2>
               <p className="text-slate-500 text-sm mb-6">
                 Has completado <strong className="text-teal-700">{answeredCount}</strong> de <strong className="text-slate-800">{totalCount}</strong> preguntas.
                 {answeredCount < totalCount && (
                   <span className="block mt-2 text-rose-500 font-medium">
-                    Las preguntas no contestadas se calificarán con 0 puntos.
+                    Se asignará 0 puntos a las preguntas vacías.
                   </span>
                 )}
               </p>
@@ -85,13 +90,13 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
               <div className="flex gap-3 w-full">
                 <button 
                   onClick={() => setShowFinishModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors text-sm border border-slate-200"
+                  className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors text-sm border border-slate-200"
                 >
-                  Continuar
+                  Volver
                 </button>
                 <button 
                   onClick={submitExamNow}
-                  className="flex-1 px-4 py-2.5 bg-accent hover:bg-teal-700 text-white font-bold rounded-lg shadow-md transition-all text-sm"
+                  className="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg shadow-md transition-all text-sm"
                 >
                   Entregar
                 </button>
@@ -107,24 +112,24 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
              <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-md transition-colors">
                 <Menu className="w-5 h-5" />
              </button>
-             <div className="flex items-center gap-3">
-                <div className="bg-accent p-1.5 rounded-lg shadow-sm">
-                   <BookOpen className="w-5 h-5 text-white" />
+             <div className="flex items-center gap-2 sm:gap-3">
+                <div className="bg-slate-900 p-1.5 rounded-lg">
+                   <BookOpen className="w-4 h-4 text-white" />
                 </div>
-                <h1 className="text-base lg:text-lg font-bold text-slate-800 tracking-tight hidden sm:block">Evaluación Académica Profesional</h1>
-                <h1 className="text-base font-bold text-slate-800 tracking-tight sm:hidden">Evaluación</h1>
+                <h1 className="text-base font-bold text-slate-800 tracking-tight hidden sm:block">Evaluación Académica</h1>
+                <h1 className="text-sm font-bold text-slate-800 tracking-tight sm:hidden">Evaluación</h1>
              </div>
           </div>
 
           <div className="flex items-center gap-4">
-             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 text-xs font-semibold text-slate-500">
-                Sesión: <span className="text-slate-800 uppercase tracking-tighter">{user.fullName.split(' ')[0]}</span>
+             <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg border border-slate-100 text-xs font-semibold text-slate-500">
+                Sesión: <span className="text-slate-900 font-bold uppercase">{user.fullName.split(' ')[0]}</span>
              </div>
              <button
                type="button"
                onClick={() => setShowFinishModal(true)}
                disabled={isSubmitting}
-               className="bg-accent hover:bg-teal-700 text-white text-sm font-bold px-5 py-2 rounded-lg transition-all shadow-sm disabled:opacity-50 transform active:scale-95"
+               className="bg-teal-700 hover:bg-teal-800 text-white text-sm font-bold px-4 py-2 rounded-lg transition-all shadow-sm disabled:opacity-50"
              >
                Finalizar
              </button>
@@ -139,7 +144,7 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
         `}>
           <div className="h-full flex flex-col">
              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-               <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Navegación</span>
+               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Navegación</span>
                <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                </button>
@@ -156,11 +161,13 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
                         onClick={() => {
                           setCurrentQuestionIndex(idx);
                           setSidebarOpen(false);
+                          const mainContent = document.getElementById('main-exam-content');
+                          if (mainContent) mainContent.scrollTop = 0;
                         }}
                         className={`
-                          h-10 rounded-lg text-xs font-bold transition-all border
+                          h-10 rounded-lg text-sm font-bold transition-all border
                           ${isCurrent 
-                              ? 'bg-accent text-white border-teal-600 shadow-md ring-2 ring-teal-100' 
+                              ? 'bg-slate-800 text-white border-slate-900 shadow-md' 
                               : isAnswered 
                                   ? 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100' 
                                   : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'}
@@ -174,13 +181,13 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
              </div>
 
              <div className="p-5 border-t border-slate-200 bg-slate-50">
-               <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider">
-                 <span>Progreso Total</span>
+               <div className="flex justify-between text-xs font-bold text-slate-500 uppercase mb-2">
+                 <span>Progreso</span>
                  <span>{Math.round((answeredCount / totalCount) * 100)}%</span>
                </div>
-               <div className="w-full bg-slate-200 rounded-full h-2 shadow-inner">
+               <div className="w-full bg-slate-200 rounded-full h-2">
                  <div 
-                   className="bg-accent h-2 rounded-full transition-all duration-500 ease-out"
+                   className="bg-teal-600 h-2 rounded-full transition-all duration-500 ease-out"
                    style={{ width: `${(answeredCount / totalCount) * 100}%` }}
                  ></div>
                </div>
@@ -190,26 +197,25 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
 
         {isSidebarOpen && (
           <div 
-            className="absolute inset-0 bg-slate-900/30 z-10 lg:hidden backdrop-blur-[2px]"
+            className="absolute inset-0 bg-slate-900/20 z-10 lg:hidden backdrop-blur-[1px]"
             onClick={() => setSidebarOpen(false)}
           ></div>
         )}
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/50 prose-scroll relative">
-          <div className="max-w-4xl mx-auto p-4 md:p-10 min-h-full flex flex-col">
+        <main id="main-exam-content" className="flex-1 overflow-y-auto bg-slate-50 prose-scroll relative scroll-smooth">
+          <div className="max-w-4xl mx-auto p-4 sm:p-8 min-h-full flex flex-col">
             
             {isReadingSection && currentTextObj && (
-              <div className="mb-10 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
-                <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <BookOpen className="w-5 h-5 text-teal-400" />
-                    <span className="font-bold text-xs uppercase tracking-widest text-slate-300">Lectura de Comprensión</span>
+              <div className="mb-8 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-slate-100 text-slate-700 px-6 py-3 flex items-center justify-between border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-teal-600" />
+                    <span className="font-bold text-xs uppercase tracking-wider">Lectura de Comprensión</span>
                   </div>
-                  <span className="text-[10px] bg-slate-700 px-2 py-1 rounded text-slate-400 font-mono">Ref. {currentTextObj.id}</span>
                 </div>
-                <div className="p-8 md:p-10 max-h-[50vh] overflow-y-auto prose-scroll bg-white">
-                  <h3 className="text-2xl font-bold text-slate-900 mb-6 font-serif leading-tight">{currentTextObj.title}</h3>
-                  <div className="prose prose-slate max-w-none text-slate-700 text-lg leading-relaxed font-serif whitespace-pre-line border-l-4 border-teal-50 pl-6">
+                <div className="p-6 md:p-8 max-h-[40vh] overflow-y-auto prose-scroll">
+                  <h3 className="text-xl font-bold text-slate-900 mb-4 font-serif">{currentTextObj.title}</h3>
+                  <div className="text-slate-700 text-base leading-relaxed font-serif whitespace-pre-line">
                     {currentTextObj.content}
                   </div>
                 </div>
@@ -228,33 +234,33 @@ const Exam: React.FC<ExamProps> = ({ user, questions, onSubmit, isSubmitting }) 
                 </div>
             )}
 
-            <div className="mt-10 flex justify-between items-center pt-8 border-t border-slate-200">
+            <div className="mt-8 flex justify-between items-center pt-8 border-t border-slate-200">
                <button
                  onClick={prevQuestion}
                  disabled={currentQuestionIndex === 0}
-                 className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all text-sm
+                 className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition-all text-sm
                    ${currentQuestionIndex === 0 
                       ? 'text-slate-300 bg-slate-50 border border-slate-100 cursor-not-allowed' 
-                      : 'text-slate-600 hover:bg-white hover:shadow-md bg-white border border-slate-200 active:scale-95'}`}
+                      : 'text-slate-600 hover:bg-white hover:shadow-sm bg-white border border-slate-200'}`}
                >
-                 <ChevronLeft className="w-5 h-5" />
-                 Anterior
+                 <ChevronLeft className="w-4 h-4" />
+                 <span>Anterior</span>
                </button>
 
                {currentQuestionIndex < questions.length - 1 ? (
                  <button
                    onClick={nextQuestion}
-                   className="flex items-center gap-2 px-8 py-3 bg-accent hover:bg-teal-700 text-white rounded-xl font-bold shadow-md transition-all transform active:scale-95 text-sm"
+                   className="flex items-center gap-2 px-8 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold shadow-md transition-all text-sm"
                  >
-                   Siguiente
-                   <ChevronRight className="w-5 h-5" />
+                   <span>Siguiente</span>
+                   <ChevronRight className="w-4 h-4" />
                  </button>
                ) : (
                  <button
                     onClick={() => setShowFinishModal(true)}
-                    className="flex items-center gap-2 px-8 py-3 bg-teal-800 hover:bg-teal-900 text-white rounded-xl font-black shadow-lg transition-all transform hover:-translate-y-0.5 text-sm uppercase tracking-wider"
+                    className="flex items-center gap-2 px-8 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg font-bold shadow-md transition-all text-sm uppercase tracking-wide"
                  >
-                    Finalizar Evaluación
+                    Finalizar
                  </button>
                )}
             </div>

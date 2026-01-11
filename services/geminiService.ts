@@ -29,31 +29,73 @@ export const evaluateOpenAnswer = async (
   contextText?: TextContext,
   userApiKey?: string
 ): Promise<AIAnalysis> => {
-  // Cambiamos a Flash para la evaluación masiva por su mayor estabilidad y cuota (RPM)
+  // Usamos Flash para evaluación rápida y eficiente
   const model = 'gemini-3-flash-preview';
   const maxRetries = 3;
   let lastError: any = null;
 
-  const prompt = `
-    Eres un experto en integridad académica y lingüística forense. Evalúa la respuesta del estudiante.
-    
-    CRITERIO CRÍTICO DE DETECCIÓN DE IA:
-    Analiza si el texto fue generado por una IA (ChatGPT, Claude, etc.).
-    REGLA DE ORO: Si detectas IA, el campo "ai_detected" debe ser true y el "score" DEBE SER 0.
+  // DETECCION DE TIPO DE PREGUNTA:
+  // Si la pregunta es sobre CITAS o NORMAS APA, el formato es rígido y robótico por naturaleza.
+  // En estos casos, DESACTIVAMOS la detección de "Sintaxis Sintética" para evitar falsos positivos.
+  const isCitationTask = 
+      question.category === 'Normas APA' || 
+      question.questionText.toLowerCase().includes('cita') || 
+      question.questionText.toLowerCase().includes('referencia') ||
+      question.questionText.toLowerCase().includes('bibliografía');
 
-    OTROS CRITERIOS (Si no es IA):
-    1. PRECISIÓN: ¿Mantiene el sentido original?
-    2. REGISTRO: ¿Usa un tono formal académico?
+  let detectionInstructions = '';
+
+  if (isCitationTask) {
+    detectionInstructions = `
+    --- MODO TÉCNICO (EXCEPCIÓN DE FORMATO) ---
+    ESTA PREGUNTA REQUIERE UN FORMATO RÍGIDO (CITAS/REFERENCIAS APA).
+    NO REALICES DETECCIÓN DE "SINTAXIS SINTÉTICA" NI "IA".
+    1. Establece "ai_detected": false OBLIGATORIAMENTE (a menos que el texto sea incoherente o spam).
+    2. Evalúa EXCLUSIVAMENTE la precisión técnica del formato (puntuación, paréntesis, cursivas, orden).
+    3. Si el formato APA es correcto, otorga el puntaje completo. No busques "voz humana" en una cita bibliográfica.
+    `;
+  } else {
+    detectionInstructions = `
+    --- TAREA DE DETECCIÓN DE IA (ANÁLISIS FORENSE) ---
+    Debes determinar si esta respuesta fue escrita por un humano o generada por una IA (ChatGPT, etc.).
     
-    DATOS:
-    Pregunta: "${question.questionText}"
-    Respuesta Estudiante: "${userAnswer}"
-    Puntos Máximos: ${question.points}
+    PATRONES DE "SINTAXIS SINTÉTICA" (MARCAR COMO IA):
+    1. **Perfección Aséptica**: Gramática y puntuación 100% perfectas y robóticas.
+    2. **Estructura de 'Sandwich' Rígida**: Introducción genérica + Puntos clave perfectos + Conclusión moralizante.
+    3. **Generalización Enciclopédica**: Suena a Wikipedia, sin la "voz" o duda natural de un estudiante.
+    4. **Conectores de Transición Excesivos**: Uso mecánico de "Por otro lado", "Asimismo", "En conclusión".
     
+    PATRONES HUMANOS (NO PENALIZAR):
+    1. Errores menores de tipeo.
+    2. Frases excesivamente largas o cortas (ritmo irregular).
+    3. Uso de muletillas.
+
+    --- REGLA DE DECISIÓN ---
+    - Si la respuesta es **demasiado perfecta, genérica y sin alma**: ai_detected = true.
+    - Si la respuesta tiene **imperfecciones, voz propia o especificidad**: ai_detected = false.
+    `;
+  }
+
+  const prompt = `
+    Actúa como un profesor experto en evaluación académica.
+    
+    --- CONTEXTO ---
+    CATEGORÍA: ${question.category}
+    PREGUNTA: "${question.questionText}"
+    RESPUESTA DEL ESTUDIANTE: "${userAnswer}"
+    VALOR MÁXIMO: ${question.points} puntos.
+    RESPUESTA ESPERADA (GUÍA): "${question.expectedAnswer || 'N/A'}"
+    
+    ${detectionInstructions}
+
+    --- EVALUACIÓN ACADÉMICA ---
+    Si ai_detected es false: Califica de 0 a ${question.points} con decimales si es necesario.
+    Si ai_detected es true: Score es 0 automáticamente.
+
     Retorna ESTRICTAMENTE este JSON:
     {
-      "score": (número entre 0 y ${question.points}),
-      "feedback": "(retroalimentación clara)",
+      "score": (número decimal),
+      "feedback": "(Feedback breve y directo para el estudiante)",
       "ai_detected": (boolean)
     }
   `;
@@ -66,8 +108,7 @@ export const evaluateOpenAnswer = async (
         contents: prompt,
         config: { 
           responseMimeType: "application/json",
-          // Eliminamos thinkingBudget para Flash en tareas de calificación para reducir latencia
-          temperature: 0.1 // Mayor consistencia en la nota
+          temperature: 0.0 // Temperatura 0 para máximo rigor analítico
         }
       });
       
@@ -82,21 +123,20 @@ export const evaluateOpenAnswer = async (
       };
     } catch (error) {
       lastError = error;
-      console.warn(`Intento ${attempt} fallido para pregunta ${question.id}. Causa probable: Saturación de API.`);
+      console.warn(`Intento ${attempt} fallido para pregunta ${question.id}.`);
       
       if (attempt < maxRetries) {
-        // Aumentamos el tiempo de espera entre reintentos para permitir que la cuota se resetee
-        await delay(attempt * 3000); 
+        await delay(attempt * 2500); 
       }
     }
   }
 
-  console.error("Máximos reintentos alcanzados. Aplicando política de contingencia.", lastError);
+  console.error("Máximos reintentos alcanzados.", lastError);
   
   return { 
     questionId: question.id, 
     score: question.points, 
-    feedback: "CONVENIO DE CONTINGENCIA: El motor de IA no respondió tras 3 intentos (Saturación Global). Se asigna puntaje máximo para proteger su registro académico.",
+    feedback: "El sistema de calificación automática no está disponible en este momento.",
     aiDetected: false
   };
 };
@@ -110,8 +150,9 @@ export const reformulateExam = async (
   const maxRetries = 2;
 
   const prompt = `
-    Actúa como un profesor universitario. Reformula estas preguntas para el estudiante ${studentName}.
-    OBJETIVO: Que el examen sea único pero mantenga la dificultad original.
+    Actúa como un profesor. Personaliza ligeramente estas preguntas para el estudiante ${studentName}.
+    MANTÉN la dificultad, el sentido original Y SOBRE TODO LA CATEGORÍA EXACTA.
+    Solo varía levemente la redacción para evitar copia.
     Preguntas: ${JSON.stringify(questions)}
   `;
 
@@ -144,7 +185,7 @@ export const checkSystemAvailability = async (userApiKey?: string): Promise<bool
         });
         return true;
     } catch (error: any) {
-        console.error("Fallo de validación API:", error?.message || error);
+        console.error("API Check Failed:", error?.message || error);
         return false;
     }
 };

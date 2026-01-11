@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Question, QuestionType } from '../types';
 import { FileText, CheckCircle, Info, Edit3, ShieldAlert, GraduationCap } from 'lucide-react';
@@ -40,61 +41,64 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   };
 
   return (
-    <div className="w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="w-full mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-3xl">
       
-      <div className="flex flex-wrap items-center gap-4 mb-8">
-        <div className={`flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black border uppercase tracking-widest ${getCategoryStyles(question.category)}`}>
+      {/* Header: Categoría e Instrucciones */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border uppercase tracking-wider ${getCategoryStyles(question.category)}`}>
             {getCategoryIcon(question.category)}
             <span>{question.category}</span>
         </div>
         {question.instruction && (
-          <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 italic">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-500 italic">
              <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
              {question.instruction}
           </div>
         )}
       </div>
 
-      <div className="mb-10">
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-900 leading-tight mb-5 tracking-tight">
+      {/* Pregunta Principal - Tamaño normalizado */}
+      <div className="mb-8">
+        <h2 className="text-xl md:text-2xl font-semibold text-slate-900 leading-snug mb-4 text-balance">
           {question.questionText}
         </h2>
         <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-teal-800 bg-teal-50 px-3 py-1 rounded-lg border border-teal-100 uppercase tracking-tighter">
+            <span className="text-xs font-bold text-teal-800 bg-teal-50 px-3 py-1 rounded-md border border-teal-100 uppercase tracking-wide">
                 Valor: {question.points} {question.points === 1 ? 'punto' : 'puntos'}
             </span>
             <div className="h-px w-8 bg-slate-200"></div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-                {questionIndex + 1} de {totalQuestions}
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                Pregunta {questionIndex + 1} de {totalQuestions}
             </span>
         </div>
       </div>
 
-      <div className="bg-white p-6 md:p-10 rounded-3xl border border-slate-100 shadow-2xl shadow-slate-200/40">
+      {/* Área de Respuesta */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         {question.type === QuestionType.MULTIPLE_CHOICE && question.options ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {question.options.map((option, idx) => {
               const isSelected = currentAnswer === option;
               return (
                 <label 
                   key={idx} 
-                  className={`group relative flex items-start p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
+                  className={`group relative flex items-start p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
                     isSelected
-                      ? 'border-teal-600 bg-teal-50/20' 
-                      : 'border-slate-50 hover:border-slate-200 hover:bg-slate-50/50'
+                      ? 'border-teal-600 bg-teal-50/30 ring-1 ring-teal-500' 
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center h-6 mt-0.5">
+                  <div className="flex items-center h-5 mt-0.5">
                     <input
                         type="radio"
                         name={`question-${question.id}`}
                         value={option}
                         checked={isSelected}
                         onChange={(e) => onAnswerChange(e.target.value)}
-                        className="h-5 w-5 text-teal-700 border-slate-300 focus:ring-teal-500 focus:ring-offset-0"
+                        className="h-4 w-4 text-teal-700 border-slate-300 focus:ring-teal-500 focus:ring-offset-0"
                     />
                   </div>
-                  <div className={`ml-5 text-lg leading-relaxed transition-colors ${isSelected ? 'text-teal-900 font-bold' : 'text-slate-600 font-medium'}`}>
+                  <div className={`ml-3 text-base leading-relaxed ${isSelected ? 'text-teal-900 font-semibold' : 'text-slate-600 font-medium'}`}>
                     {option}
                   </div>
                 </label>
@@ -104,13 +108,13 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         ) : (
           <div className="relative group">
             <textarea
-              className="w-full p-8 border-2 border-slate-50 rounded-2xl focus:ring-0 focus:border-teal-500 transition-all text-slate-800 bg-slate-50/30 placeholder-slate-400 text-lg leading-relaxed min-h-[250px] resize-y font-sans shadow-inner"
-              placeholder="Desarrolle su respuesta utilizando un registro académico pertinente..."
+              className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-800 bg-slate-50 placeholder-slate-400 text-base leading-relaxed min-h-[200px] resize-y font-sans"
+              placeholder="Escriba su respuesta aquí..."
               value={currentAnswer}
               onChange={(e) => onAnswerChange(e.target.value)}
             />
-            <div className="absolute bottom-5 right-6 flex items-center gap-3">
-              <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg bg-white shadow-sm border ${currentAnswer.length > 50 ? 'text-teal-600 border-teal-100' : 'text-slate-300 border-slate-100'}`}>
+            <div className="absolute bottom-4 right-4 flex items-center gap-3">
+              <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded bg-white border ${currentAnswer.length > 50 ? 'text-teal-600 border-teal-100' : 'text-slate-300 border-slate-100'}`}>
                 {currentAnswer.split(/\s+/).filter(word => word.length > 0).length} PALABRAS
               </span>
             </div>
@@ -118,14 +122,14 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
         )}
       </div>
 
-      <div className="mt-8 p-5 bg-slate-900 text-slate-300 rounded-2xl flex gap-4 items-start shadow-xl">
-          <div className="mt-1 bg-teal-500/20 p-2 rounded-xl">
-             <Info className="w-4 h-4 text-teal-400" />
+      {/* Footer Informativo */}
+      <div className="mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl flex gap-3 items-start">
+          <div className="mt-0.5">
+             <Info className="w-5 h-5 text-slate-400" />
           </div>
-          <div className="text-xs leading-relaxed">
-            <strong className="text-white uppercase tracking-wider block mb-1">Criterio de Evaluación:</strong>
-            Las respuestas abiertas son analizadas por un modelo lingüístico avanzado que prioriza la precisión conceptual, el rigor sintáctico y la adecuación al registro universitario.
-          </div>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            <span className="font-bold text-slate-700">Criterio:</span> La IA evalúa la precisión, el uso de normas y el registro académico formal.
+          </p>
       </div>
     </div>
   );
